@@ -376,6 +376,25 @@
 
   // ── Exercise diagrams: brand line-art, MMS-card sized ────
   const STICK = { ink: "#3b4733", limb: "#4e9b3f", move: "#b67a1e" };
+
+  // A "series of images" like a real MMS sequence: three static poses
+  // (start → mid → end), no animation — SVG-native rotate/translate.
+  const FRAME_POSES = {
+    "an-swing": { kind: "rotate", origin: "78 36", steps: [-13, 0, 13] },
+    "an-crawl": { kind: "rotate", origin: "86 44", steps: [9, -3, -14] },
+    "an-rot": { kind: "rotate", origin: "84 56", steps: [6, -13, -32] },
+    "an-pull": { kind: "translate", steps: [[0, 0], [-3.5, 1], [-7, 2]] },
+  };
+  function frameSvg(body, i) {
+    return body.replace(/<g class="(an-[a-z]+)"[^>]*>/, (_, cls) => {
+      const p = FRAME_POSES[cls];
+      if (!p) return "<g>";
+      if (p.kind === "rotate") return `<g transform="rotate(${p.steps[i]} ${p.origin})">`;
+      const [x, y] = p.steps[i];
+      return `<g transform="translate(${x} ${y})">`;
+    });
+  }
+
   function exCard(key) {
     const EX = {
       pendulum: {
@@ -436,8 +455,11 @@
     const card = document.createElement("div");
     card.className = "ph-card";
     card.innerHTML = `
-      <div class="ph-card-h"><b>${e.name}</b><span class="ph-pill" style="color:#4e9b3f;background:#4e9b3f22" title="Over real SMS this arrives as an MMS PNG card — see ./app/api/exercise-image/${key}.png in this demo">MMS ✓</span></div>
-      <svg viewBox="0 0 200 100" style="height:88px;background:#f7f4ec;border-radius:8px">${e.svg}</svg>
+      <div class="ph-card-h"><b>${e.name}</b><span class="ph-pill" style="color:#4e9b3f;background:#4e9b3f22" title="Over real SMS this arrives as a 3-image MMS series — the PNGs live at ./app/api/exercise-image/${key}.png in this demo">MMS ✓</span></div>
+      <div class="ph-frames">
+        ${[0, 1, 2].map((i) => `<svg viewBox="0 0 200 100">${frameSvg(e.svg, i)}</svg>`).join("")}
+      </div>
+      <div class="ph-frames-lbl"><span>1</span><span>2</span><span>3</span></div>
       <div style="font:600 10px ui-monospace,monospace;color:#3b4733;margin-top:6px">${e.dose}</div>
       <div style="font:11px Inter,sans-serif;color:#6e7768;margin-top:3px;line-height:1.45">${e.tip}</div>
       <div class="ph-why">TEXT "WHY ${key.toUpperCase()}" FOR THE REASONING</div>`;
@@ -569,6 +591,20 @@
   }
 
   // ── Settings sheet (✨) ──────────────────────────────────
+
+  function refreshKeyUI() {
+    const has = !!localStorage.getItem("oh-demo-key");
+    const head = document.getElementById("head-key");
+    if (head) {
+      head.textContent = has ? "✓ Claude key added" : "🔑 Add your Claude API key";
+      head.classList.toggle("key-on", has);
+    }
+    const sub = document.querySelector(".ph-contact .sub");
+    if (sub) sub.textContent = has && mode === "claude" ? "your health OS · Claude connected" : "your health OS · texts you first";
+    const ai = $("#ph-ai");
+    if (ai) ai.textContent = has && mode === "claude" ? "✨✓" : "✨";
+  }
+
   function openSettings() {
     const sheet = $("#ph-sheet");
     sheet.classList.add("open");
@@ -600,6 +636,7 @@
         status.textContent = "Grounded engine: instant answers computed from the sample data.";
         sysNote("Grounded engine active");
       }
+      refreshKeyUI();
     });
   });
   $("#ph-key-save").addEventListener("click", () => {
@@ -607,6 +644,7 @@
     if (v) {
       localStorage.setItem("oh-demo-key", v);
       $("#ph-key").value = "";
+      refreshKeyUI();
       $("#ph-sheet-status").textContent = "Key saved locally. The phone now answers with Claude.";
       sysNote("✨ Claude active (your key, this browser only)");
       $("#ph-sheet").classList.remove("open");
@@ -623,6 +661,7 @@
   fetch("./demo-data.json").then((r) => r.json()).then((d) => {
     DATA = d;
     $("#ph-time").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    refreshKeyUI();
     if (mode === "claude" && localStorage.getItem("oh-demo-key")) {
       sysNote("✨ Claude mode is still active from a previous visit — your messages go to Anthropic under the saved key. Tap ✨ to change.");
     } else if (mode === "webllm") {

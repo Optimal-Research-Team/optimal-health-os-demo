@@ -193,3 +193,12 @@ body {
 .ph-week .today i { background: #fff; border: 2px dashed #4e9b3f; box-sizing: border-box; }
 
 button.pill-note { font-family: Inter, system-ui, sans-serif; font-size: 12px; }
+
+/* Exercise frame series (start → mid → end) */
+.ph-frames { display: flex; gap: 4px; }
+.ph-frames svg { flex: 1; min-width: 0; height: 58px; background: #f7f4ec; border-radius: 6px; }
+.ph-frames-lbl { display: flex; margin-top: 3px; }
+.ph-frames-lbl span { flex: 1; text-align: center; font: 9px ui-monospace, monospace; color: #9ba391; }
+
+/* Header key button states */
+#head-key.key-on { background: #4e9b3f; color: #fff; border-color: #4e9b3f; }
