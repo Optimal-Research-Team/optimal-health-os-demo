@@ -6,6 +6,13 @@
    All answers ground in demo-data.json; marker charts attach like MMS. */
 (() => {
   const $ = (s, el = document) => el.querySelector(s);
+  document.querySelectorAll(".tabs button").forEach((b) =>
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("sel"));
+      b.classList.add("sel");
+      document.querySelector(".split").dataset.tab = b.dataset.tab;
+    }),
+  );
   const thread = $("#ph-thread");
   const input = $("#ph-input");
   const form = $("#ph-form");
@@ -129,11 +136,15 @@
       const b = DATA.brief;
       return b ? { text: `${b.tone === "push" ? "🟢" : b.tone === "easy" ? "🟠" : "🌿"} ${b.headline}\n${b.detail}` } : { text: "No fresh wearable data for a brief." };
     }
+    const namedMarker = findMarker(q);
+    if (namedMarker && !/^(summary|panel|compare|score|meds|today|brief|help)$/.test(lower)) {
+      return { text: markerAnswer(namedMarker), card: trendCard(namedMarker) };
+    }
     if (
       lower === "summary" || lower === "panel" ||
       /\blatest\b.*\b(labs?|tests?|results?|panel|bloodwork)\b|\b(labs?|tests?|results?|bloodwork)\b.*\blatest\b|\bmy (labs|lab tests|results|bloodwork)\b/.test(lower)
     ) return { text: DATA.panelSms ?? "No panels on file." };
-    if (lower === "compare" || /\bchanged\b|\bsince (my )?last (draw|panel|test|labs)\b/.test(lower)) {
+    if (lower === "compare" || /\bchanged\b|\bsince (my )?last (draw|panel|test|labs|bloodwork)\b/.test(lower)) {
       const c = DATA.compareViz;
       return c ? { text: `${c.toDate} vs ${c.fromDate}:\n✅ ${c.improved} improved · ⚠️ ${c.worsened} worsened · ${c.steady} steady\nBiggest movers: ${c.movers.map((v) => `${v.name} ${fmt(v.from)}→${fmt(v.to)} ${v.unit}`).join(", ")}` } : { text: "Need two panels to compare." };
     }
@@ -172,7 +183,11 @@
         model: "claude-sonnet-5",
         max_tokens: 400,
         system: SYSTEM(),
-        messages: [...history, { role: "user", content: q }].slice(-12),
+        messages: (() => {
+          const h = [...history, { role: "user", content: q }].slice(-12);
+          while (h.length && h[0].role !== "user") h.shift();
+          return h;
+        })(),
       }),
     });
     if (!res.ok) throw new Error(`Claude API ${res.status} — check the key in ✨ settings`);
@@ -191,7 +206,7 @@
   }
 
   async function loadWebLLM(statusEl) {
-    const { CreateMLCEngine } = await import("https://esm.run/@mlc-ai/web-llm");
+    const { CreateMLCEngine } = await import("https://esm.run/@mlc-ai/web-llm@0.2.79");
     engine = await CreateMLCEngine("Llama-3.2-1B-Instruct-q4f16_1-MLC", {
       initProgressCallback: (p) => { statusEl.textContent = `Loading model… ${Math.round((p.progress ?? 0) * 100)}%`; },
     });
@@ -227,9 +242,12 @@
       chips: ["None", "A little", "Red and warm"],
       parse(a) {
         const t = a.toLowerCase();
-        if (/red|warm|hot|pus|fever|concern/.test(t))
+        const symptom = /\b(red|redness|warm|warmth|hot|pus|oozing|fever)\b/.test(t);
+        const negated = /\b(no|not|none|nothing|isn't|isnt|without|clean|fine|normal|looks good)\b/.test(t);
+        if (symptom && !negated)
           return { reply: "Redness + warmth can mean infection — that one's not a wait-and-see. Call the clinic now, or after hours go to urgent care. Flagging this at the top of your timeline.", flag: true };
-        if (/little|some|mild|slight/.test(t)) return { reply: "A little swelling is normal this week. Keep it elevated when you're sitting." };
+        if (/\b(little|some|mild|slight|bit)\b/.test(t) && !negated)
+          return { reply: "A little swelling is normal this week. Keep it elevated when you're sitting." };
         return { reply: "Clean incision — exactly what day 5 should look like." };
       },
     },
@@ -237,8 +255,10 @@
       ask: "Q3 — did you get today's pendulum exercises in?",
       chips: ["Done ✓", "Not yet"],
       parse(a) {
-        if (/not|no\b|later|skip/.test(a.toLowerCase()))
-          return { reply: "The first two weeks set your range for the year — 5 gentle minutes counts. I'll nudge you at 4pm." };
+        const t = a.toLowerCase();
+        const didIt = /\b(done|did|yes|yep|finished|complete)\b/.test(t) && !/\bnot\b/.test(t);
+        const skipped = /\b(not yet|haven't|havent|didn't|didnt|skipped|later|tomorrow|forgot)\b/.test(t) || (/\bno\b/.test(t) && !/\bno (problem|issue|trouble)s?\b/.test(t) && !didIt);
+        if (skipped) return { reply: "The first two weeks set your range for the year — 5 gentle minutes counts. I'll nudge you at 4pm." };
         return { reply: "Done — adherence is the #1 predictor of how this rehab goes. 💪" };
       },
     },
@@ -246,7 +266,10 @@
       ask: "Last one — sleeping okay with the sling?",
       chips: ["Fine", "Rough"],
       parse(a) {
-        if (/rough|bad|awful|terrible|no\b/.test(a.toLowerCase()))
+        const t = a.toLowerCase();
+        const okay = /\b(fine|good|okay|ok|great|no (problem|issue|trouble)s?)\b/.test(t);
+        const rough = /\b(rough|bad|awful|terrible|poorly|barely|couldn't|couldnt|struggl)\b/.test(t);
+        if (rough && !okay)
           return { reply: "Try a wedge pillow or a recliner — semi-upright takes the pull off the repair. Most people sleep flat again around week 3." };
         return { reply: "Good — protected sleep is when the repair does its healing." };
       },
@@ -290,6 +313,7 @@
       bubble("in", "No problem — we'll pick the check-in up tomorrow.");
       return;
     }
+    if (flow.step >= flow.script.length) return; // close-out pending — ignore the race
     const step = flow.script[flow.step];
     const res = step.parse(q);
     if (res.retry) { bubble("in", res.retry); return; }
@@ -509,6 +533,7 @@
     const v = $("#ph-key").value.trim();
     if (v) {
       localStorage.setItem("oh-demo-key", v);
+      $("#ph-key").value = "";
       $("#ph-sheet-status").textContent = "Key saved locally. The phone now answers with Claude.";
       sysNote("✨ Claude active (your key, this browser only)");
       $("#ph-sheet").classList.remove("open");
@@ -525,6 +550,12 @@
   fetch("./demo-data.json").then((r) => r.json()).then((d) => {
     DATA = d;
     $("#ph-time").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (mode === "claude" && localStorage.getItem("oh-demo-key")) {
+      sysNote("✨ Claude mode is still active from a previous visit — your messages go to Anthropic under the saved key. Tap ✨ to change.");
+    } else if (mode === "webllm") {
+      mode = "grounded"; // the model never persists across loads — don't pretend
+      sysNote("Grounded engine active (the in-browser model reloads via ✨).");
+    }
     sysNote(`Today ${now()}`);
     bubble("in", "Morning — here's where you stand today. 🌿");
     const b = DATA.brief;

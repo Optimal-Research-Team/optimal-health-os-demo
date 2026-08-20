@@ -6,7 +6,8 @@
 <title>Optimal Health OS — Live Demo</title>
 <meta name="description" content="A personal health OS: labs, wearables, records, and a proactive SMS coach. Live demo on fabricated sample data.">
 <link rel="icon" href="./app/icon.svg">
-<link rel="stylesheet" href="./demo.css?v=4">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://esm.run https://cdn.jsdelivr.net 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://api.anthropic.com https://esm.run https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com https://*.mlc.ai; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-src 'self'; base-uri 'none'; form-action 'none'">
+<link rel="stylesheet" href="./demo.css?v=5">
 </head>
 <body>
 <header class="demo-head">
@@ -62,7 +63,7 @@
           <button data-mode="webllm"><b>In-browser LLM</b>A real ~1B-param model via WebGPU. ~700MB download, runs entirely on your device.</button>
           <button data-mode="claude"><b>Claude (your API key)</b>Full-strength answers. The key stays in this browser's localStorage and calls Anthropic directly.</button>
           <div id="ph-key-row">
-            <input id="ph-key" placeholder="sk-ant-…" aria-label="Anthropic API key">
+            <input id="ph-key" type="password" autocomplete="off" placeholder="sk-ant-…" aria-label="Anthropic API key">
             <button id="ph-key-save">Save</button>
           </div>
           <div id="ph-sheet-status"></div>
@@ -72,13 +73,6 @@
   </aside>
 </main>
 
-<script>
-document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
-  document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("sel"));
-  b.classList.add("sel");
-  document.querySelector(".split").dataset.tab = b.dataset.tab;
-}));
-</script>
-<script src="./phone.js?v=4"></script>
+<script src="./phone.js?v=5"></script>
 </body>
 </html>
