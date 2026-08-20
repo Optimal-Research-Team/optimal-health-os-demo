@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimal Health OS — Live Demo</title>
+<meta name="description" content="A personal health OS: labs, wearables, records, and a proactive SMS coach. Live demo on fabricated sample data.">
+<link rel="icon" href="./app/icon.svg">
+<link rel="stylesheet" href="./demo.css?v=2">
+</head>
+<body>
+<header class="demo-head">
+  <div class="wordmark">optimal<span>.</span></div>
+  <div class="tag">Health OS · Live demo</div>
+  <div class="spacer"></div>
+  <div class="pill-note">Fabricated sample data · nothing here is medical advice</div>
+</header>
+
+<div class="tabs">
+  <button class="sel" data-tab="app">The app</button>
+  <button data-tab="phone">The SMS coach</button>
+</div>
+
+<main class="split" data-tab="app">
+  <section class="pane-app" aria-label="Optimal Health OS demo app">
+    <iframe src="./app/" title="Optimal Health OS (demo, read-only)"></iframe>
+  </section>
+
+  <aside class="pane-phone" aria-label="SMS coach demo phone">
+    <div class="phone">
+      <div class="ph-screen">
+        <div class="ph-island"></div>
+        <div class="ph-status"><span id="ph-time">9:41</span><span>𝗹𝗹 ᯤ ▮</span></div>
+        <div class="ph-contact">
+          <div class="ph-ava">O.</div>
+          <b>Optimal</b>
+          <span class="sub">your health OS · texts you first</span>
+        </div>
+        <button id="ph-ai" title="Choose the brain (grounded engine / in-browser LLM / your Claude key)">✨</button>
+
+        <div id="ph-thread"></div>
+
+        <div id="ph-chips">
+          <button data-q="TODAY">TODAY</button>
+          <button data-q="What's my ferritin trend?">Ferritin</button>
+          <button data-q="What changed since my last draw?">What changed?</button>
+          <button data-q="SCORE">Score</button>
+          <button data-q="SUMMARY">Summary</button>
+          <button data-q="MEDS">Meds</button>
+        </div>
+        <form id="ph-form" autocomplete="off">
+          <input id="ph-input" placeholder="Text Optimal…" aria-label="Message">
+          <button aria-label="Send">↑</button>
+        </form>
+        <div class="ph-disclaim">SAMPLE DATA · DEMO · NOT MEDICAL ADVICE</div>
+
+        <div id="ph-sheet">
+          <button id="ph-sheet-close" aria-label="Close">✕</button>
+          <h4>Choose the phone's brain</h4>
+          <p>Every tier grounds in the same sample data. Nothing you type leaves this page except in the mode you choose.</p>
+          <button data-mode="grounded"><b>Grounded engine (default)</b>Instant, deterministic — the product's real demo engine, running in your browser.</button>
+          <button data-mode="webllm"><b>In-browser LLM</b>A real ~1B-param model via WebGPU. ~700MB download, runs entirely on your device.</button>
+          <button data-mode="claude"><b>Claude (your API key)</b>Full-strength answers. The key stays in this browser's localStorage and calls Anthropic directly.</button>
+          <div id="ph-key-row">
+            <input id="ph-key" placeholder="sk-ant-…" aria-label="Anthropic API key">
+            <button id="ph-key-save">Save</button>
+          </div>
+          <div id="ph-sheet-status"></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script>
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("sel"));
+  b.classList.add("sel");
+  document.querySelector(".split").dataset.tab = b.dataset.tab;
+}));
+</script>
+<script src="./phone.js?v=2"></script>
+</body>
+</html>
