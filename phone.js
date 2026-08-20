@@ -203,12 +203,12 @@
   // The product concept: post-procedure check-ins are PROTOCOLS — scheduled,
   // structured, branching on answers, logged to the issue timeline. The demo
   // flow is fully interactive; answers land on a real chart.
-  let flow = null; // { step, answers }
+  let flow = null; // { script, step, answers, flags, ctx }
   const PAIN_HISTORY = [
     { date: "Day 1", value: 7 },
     { date: "Day 3", value: 4 },
   ];
-  const FLOW = [
+  const CHECKIN = [
     {
       ask: "Q1 of 4 — pain right now, 0–10?",
       chips: ["1", "4", "8"],
@@ -266,14 +266,22 @@
   function setChips(list) {
     chipsRow.innerHTML = list.map((c) => `<button data-q="${c}">${c}</button>`).join("");
   }
-  const DEFAULT_CHIPS = ["TODAY", "What's my ferritin trend?", "What changed since my last draw?", "SCORE", "MEDS", "Post-op check-in ▶"];
-  function startFlow() {
-    flow = { step: 0, answers: [], flags: 0 };
-    bubble("in", "🏥 Day 5 after your rotator cuff repair (sample scenario) — your scheduled check-in. Four quick questions; answer with a tap or in your own words. Type STOP anytime.");
+  const DEFAULT_CHIPS = ["Recovery coach ▶", "Post-op check-in ▶", "TODAY", "What's my ferritin trend?", "What changed since my last draw?", "SCORE", "MEDS"];
+  function startFlow(script, intro, close) {
+    flow = { script, step: 0, answers: [], flags: 0, ctx: {}, close };
+    bubble("in", intro);
     setTimeout(() => {
-      bubble("in", FLOW[0].ask);
-      setChips(FLOW[0].chips);
+      bubble("in", script[0].ask);
+      setChips(script[0].chips);
     }, 700);
+  }
+  function closeCheckin(done) {
+    const pain = CHECKIN[0].value ?? 4;
+    bubble(
+      "in",
+      `That's everything — logged to your "Rotator cuff repair" timeline:\n• Pain ${pain}/10 (from 7 on day 1)\n• Incision: ${done.answers[1]}\n• Exercises: ${done.answers[2]}\n• Sleep: ${done.answers[3]}${done.flags ? "\n⚠️ " + done.flags + " item(s) flagged for your care team." : "\nNo flags — trajectory looks good."}\nNext check-in: day 8.`,
+      painCard(pain),
+    );
   }
   function flowAnswer(q) {
     if (/^stop$|^skip$|^cancel$/i.test(q.trim())) {
@@ -282,27 +290,150 @@
       bubble("in", "No problem — we'll pick the check-in up tomorrow.");
       return;
     }
-    const step = FLOW[flow.step];
+    const step = flow.script[flow.step];
     const res = step.parse(q);
     if (res.retry) { bubble("in", res.retry); return; }
     flow.answers.push(q);
     if (res.flag) flow.flags++;
     bubble("in", res.reply);
+    if (res.cards) {
+      res.cards.forEach((k, i) => setTimeout(() => bubble("in", null, exCard(k)), 350 + i * 450));
+    }
     flow.step++;
-    if (flow.step < FLOW.length) {
-      setTimeout(() => { bubble("in", FLOW[flow.step].ask); setChips(FLOW[flow.step].chips); }, 900);
+    if (flow.step < flow.script.length) {
+      setTimeout(() => { bubble("in", flow.script[flow.step].ask); setChips(flow.script[flow.step].chips); }, 900);
     } else {
-      const pain = FLOW[0].value ?? 4;
+      const done = flow;
       setTimeout(() => {
-        bubble(
-          "in",
-          `That's everything — logged to your "Rotator cuff repair" timeline:\n• Pain ${pain}/10 (from 7 on day 1)\n• Incision: ${flow.answers[1]}\n• Exercises: ${flow.answers[2]}\n• Sleep: ${flow.answers[3]}${flow.flags ? "\n⚠️ " + flow.flags + " item(s) flagged for your care team." : "\nNo flags — trajectory looks good."}\nNext check-in: day 8.`,
-          painCard(pain),
-        );
+        done.close(done);
         flow = null;
         setChips(DEFAULT_CHIPS);
       }, 1000);
     }
+  }
+
+
+  // ── Exercise diagrams: brand line-art, MMS-card sized ────
+  const STICK = { ink: "#3b4733", limb: "#4e9b3f", move: "#b67a1e" };
+  function exCard(key) {
+    const EX = {
+      pendulum: {
+        name: "Pendulum swings", dose: "2 min · 3×/day · let gravity do it",
+        tip: "Lean on a table, let the arm hang heavy, draw small circles — momentum, not muscle.",
+        svg: `<circle cx="70" cy="22" r="8" fill="none" stroke="${STICK.ink}" stroke-width="2.5"/>
+          <path d="M70 30 L96 52 L128 56" fill="none" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M96 52 L96 92" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M128 44 L128 60 M112 60 L172 60 M118 60 L118 92 M166 60 L166 92" stroke="${STICK.ink}" stroke-width="2" stroke-linecap="round"/>
+          <path d="M78 36 L74 74" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+          <ellipse cx="74" cy="84" rx="14" ry="7" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4"/>
+          <path d="M60 82 L56 86 L62 88" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>`,
+      },
+      wallcrawl: {
+        name: "Wall crawl", dose: "3×10 · stop at pull, not pain",
+        tip: "Walk the fingers up the wall; a little higher each day is the whole game.",
+        svg: `<path d="M150 8 L150 96" stroke="${STICK.ink}" stroke-width="2.5"/>
+          <circle cx="86" cy="30" r="8" fill="none" stroke="${STICK.ink}" stroke-width="2.5"/>
+          <path d="M86 38 L86 74 M86 74 L76 96 M86 74 L96 96" fill="none" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M86 44 L148 34" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M144 30 L144 12" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>
+          <path d="M140 16 L144 10 L148 16" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>
+          <path d="M138 30 L142 32 L140 36 L144 38" fill="none" stroke="${STICK.limb}" stroke-width="2" stroke-linecap="round"/>`,
+      },
+      bandrot: {
+        name: "Band external rotation", dose: "3×12 · elbow glued to your side",
+        tip: "Elbow pinned at 90°, rotate the forearm out against the band. Slow out, slower back.",
+        svg: `<circle cx="66" cy="24" r="8" fill="none" stroke="${STICK.ink}" stroke-width="2.5"/>
+          <path d="M66 32 L66 78 M66 78 L56 96 M66 78 L76 96" fill="none" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M66 44 L84 56" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M84 56 L122 48" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M122 48 C138 44 148 40 156 30" fill="none" stroke="${STICK.ink}" stroke-width="2" stroke-dasharray="2 3"/>
+          <ellipse cx="156" cy="24" rx="5" ry="8" fill="none" stroke="${STICK.ink}" stroke-width="2"/>
+          <path d="M112 62 A26 26 0 0 0 116 36" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4"/>
+          <path d="M112 40 L117 34 L121 41" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>`,
+      },
+      crossbody: {
+        name: "Cross-body stretch", dose: "4×20s · gentle pull, no bounce",
+        tip: "Bring the arm across the chest with the other hand; a stretch, never a strain.",
+        svg: `<circle cx="96" cy="22" r="8" fill="none" stroke="${STICK.ink}" stroke-width="2.5"/>
+          <path d="M96 30 L96 76 M96 76 L86 96 M96 76 L106 96" fill="none" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M96 40 L132 52" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M132 52 L64 58" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M96 42 L70 52" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M120 66 A30 22 0 0 1 84 66" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4"/>
+          <path d="M90 62 L83 67 L90 71" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>`,
+      },
+    };
+    const e = EX[key];
+    const card = document.createElement("div");
+    card.className = "ph-card";
+    card.innerHTML = `
+      <div class="ph-card-h"><b>${e.name}</b><span class="ph-pill" style="color:#4e9b3f;background:#4e9b3f22">REHAB</span></div>
+      <svg viewBox="0 0 200 100" style="height:88px;background:#f7f4ec;border-radius:8px">${e.svg}</svg>
+      <div style="font:600 10px ui-monospace,monospace;color:#3b4733;margin-top:6px">${e.dose}</div>
+      <div style="font:11px Inter,sans-serif;color:#6e7768;margin-top:3px;line-height:1.45">${e.tip}</div>`;
+    return card;
+  }
+  function romCard(nowDeg) {
+    const m = {
+      name: "Shoulder flexion range", unit: "°", label: nowDeg >= 90 ? "AHEAD OF PLAN" : "BUILDING",
+      toneClass: nowDeg >= 90 ? "t-opt" : "t-brd", optimalLow: null, optimalHigh: null, target: 170,
+      points: [
+        { date: "Wk 1", value: 40 },
+        { date: "Wk 2", value: 65 },
+        { date: "Wk 3", value: nowDeg },
+      ],
+    };
+    const c = trendCard(m);
+    if (c) c.querySelector(".ph-card-v").innerHTML = `${nowDeg}° <i>now · surgeon's target 170° by wk 12</i>`;
+    return c;
+  }
+
+  // ── Recovery coaching: optimal rehab, phase-matched, chart + diagrams ──
+  const RECOVERY = [
+    {
+      ask: "Which week are you in? (this sample scenario assumes rotator cuff repair)",
+      chips: ["Week 2", "Week 3", "Week 6"],
+      parse(a) {
+        const w = parseInt(a.match(/\d+/)?.[0] ?? "3", 10);
+        this.week = w;
+        if (w <= 2) return { reply: "Week " + w + " — protection phase. The job is gentle motion without loading the repair. Two moves, both passive:", cards: ["pendulum", "crossbody"] };
+        if (w <= 5) return { reply: "Week " + w + " — active-assisted phase. Time to reclaim range. Your two dailies:", cards: ["wallcrawl", "pendulum"] };
+        return { reply: "Week " + w + " — early strengthening. Range work continues, and the band comes out:", cards: ["bandrot", "wallcrawl"] };
+      },
+    },
+    {
+      ask: "Range check — can you raise the arm to shoulder height (90°)?",
+      chips: ["Easily", "With effort", "Not yet"],
+      parse(a) {
+        const t = a.toLowerCase();
+        const deg = /easil|yes|easy/.test(t) ? 95 : /effort|almost|nearly/.test(t) ? 85 : 70;
+        this.deg = deg;
+        if (deg >= 90) return { reply: "95° and climbing — you're ahead of the typical curve. 📈" };
+        if (deg >= 85) return { reply: "~85° with effort is exactly where week 3 usually sits. The wall crawl is what moves this number." };
+        return { reply: "Under shoulder height for now — normal at this stage, and pushing through pain sets you BACK. Consistency over intensity.", flag: false };
+      },
+    },
+    {
+      ask: "Want today's session matched to your recovery score?",
+      chips: ["Yes", "Not today"],
+      parse(a) {
+        if (/not|no\b|later/.test(a.toLowerCase())) return { reply: "Fair — rest is part of the protocol too. I'll offer again tomorrow." };
+        const rec = DATA?.brief ? DATA.briefViz?.rows?.find((r) => r.name === "Recovery") : null;
+        const recToday = rec ? Math.round(rec.today) : 72;
+        const sleep = DATA?.briefViz?.rows?.find((r) => r.name === "Sleep");
+        return {
+          reply: `Your recovery score today is ${recToday}% (sample WHOOP data) — a normal-load day:\n• 5 min heat + pendulums to warm up\n• Full sets of today's two exercises\n• Ice 10 min after\nAnd the boring multipliers: ${sleep ? sleep.today + "h sleep last night — aim for 8+ while healing" : "protect 8h sleep"}, and ~1.6g/kg protein for tissue repair.`,
+        };
+      },
+    },
+  ];
+  function closeRecovery(done) {
+    const deg = RECOVERY[1].deg ?? 85;
+    bubble(
+      "in",
+      `Session logged to "Rotator cuff repair — rehab":\n• Phase-matched plan delivered\n• Flexion ~${deg}° (target 170° by wk 12)\n• Next milestone: full overhead reach\nI'll check your range again Friday — and if your recovery score dips below 55%, I'll swap that day to stretching only. 🌿`,
+      romCard(deg),
+    );
   }
 
   // ── Send pipeline ────────────────────────────────────────
@@ -311,7 +442,14 @@
     if (!q) return;
     bubble("out", q);
     input.value = "";
-    if (/^post-?op/i.test(q) || q === "Post-op check-in ▶") { startFlow(); return; }
+    if (/^post-?op/i.test(q) || q === "Post-op check-in ▶") {
+      startFlow(CHECKIN, "🏥 Day 5 after your rotator cuff repair (sample scenario) — your scheduled check-in. Four quick questions; answer with a tap or in your own words. Type STOP anytime.", closeCheckin);
+      return;
+    }
+    if (/^recover|^rehab|recovery coach/i.test(q)) {
+      startFlow(RECOVERY, "💪 Recovery coaching (sample scenario: shoulder surgery rehab). I'll match the protocol to your phase, your range, and today's recovery score. Type STOP anytime.", closeRecovery);
+      return;
+    }
     if (flow) { flowAnswer(q); return; }
     typing(true);
     try {
