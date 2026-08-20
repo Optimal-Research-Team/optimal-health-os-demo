@@ -88,16 +88,6 @@
     const last = vals[vals.length - 1];
     const card = document.createElement("div");
     card.className = "ph-card";
-    if (m.slug) {
-      card.style.cursor = "pointer";
-      card.title = "Open this trend in the app pane";
-      card.addEventListener("click", () => {
-        const frame = document.querySelector(".pane-app iframe");
-        if (frame) frame.src = `./app/trends/${m.slug}/`;
-        document.querySelector('.tabs button[data-tab="app"]')?.click();
-        sysNote(`Opened ${m.name} in the app pane ←`);
-      });
-    }
     card.innerHTML = `
       <div class="ph-card-h"><b>${m.name}</b><span class="ph-pill" style="color:${color};background:${color}22">${m.label}</span></div>
       <div class="ph-card-v">${fmt(last)} <i>${m.unit}</i></div>
@@ -238,52 +228,6 @@
     "Band external rotation": "The repaired rotator cuff's actual job is rotation control. Light band work in mid-range rebuilds that strength without stressing the fixation — slow eccentrics (the return) matter most.",
     "Cross-body stretch": "Targets the posterior capsule, which tightens fast in a sling. A looser posterior capsule takes pressure off the front of the shoulder when you start lifting again.",
   };
-  function guidedSetCard(name, reps = 10, intervalMs = 1300) {
-    const card = document.createElement("div");
-    card.className = "ph-card";
-    card.innerHTML = `
-      <div class="ph-card-h"><b>Guided set — ${name}</b><span class="ph-pill" style="color:#4e9b3f;background:#4e9b3f22">LIVE</span></div>
-      <div class="ph-set-count">0 <i>/ ${reps} reps</i></div>
-      <div class="ph-set-bar"><i></i></div>
-      <button class="ph-set-btn">▶ Start the set — match the pace</button>`;
-    const btn = card.querySelector(".ph-set-btn");
-    const count = card.querySelector(".ph-set-count");
-    const bar = card.querySelector(".ph-set-bar i");
-    let n = 0, timer = null;
-    btn.addEventListener("click", () => {
-      if (timer) return;
-      btn.textContent = "Slow and smooth…";
-      btn.disabled = true;
-      timer = setInterval(() => {
-        n++;
-        count.innerHTML = `${n} <i>/ ${reps} reps</i>`;
-        bar.style.width = `${(n / reps) * 100}%`;
-        if (n >= reps) {
-          clearInterval(timer);
-          btn.textContent = "Set complete ✓ rest 45s, then once more";
-          setTimeout(() => bubble("in", `Set of ${reps} done at a controlled pace — that's the quality that counts. Two more of those today and you're on protocol. 💪`), 700);
-        }
-      }, intervalMs);
-    });
-    return card;
-  }
-  function painSliderCard() {
-    const card = document.createElement("div");
-    card.className = "ph-card ph-slider-card";
-    card.innerHTML = `
-      <div class="ph-card-h"><b>Slide to your pain level</b><span class="ph-pill" style="color:#6e7768;background:#6e776822">0–10</span></div>
-      <div class="ph-slider-val">3</div>
-      <input type="range" class="ph-slider" min="0" max="10" value="3" aria-label="Pain level 0 to 10">
-      <button class="ph-set-btn">Send</button>`;
-    const slider = card.querySelector(".ph-slider");
-    const val = card.querySelector(".ph-slider-val");
-    slider.addEventListener("input", () => { val.textContent = slider.value; });
-    card.querySelector(".ph-set-btn").addEventListener("click", () => {
-      if (flow) send(slider.value);
-      card.querySelector(".ph-set-btn").disabled = true;
-    });
-    return card;
-  }
   function adherenceCard() {
     const days = [
       ["W", "done"], ["T", "done"], ["F", "miss"], ["S", "done"], ["S", "done"], ["M", "done"], ["T", "today"],
@@ -308,8 +252,7 @@
   ];
   const CHECKIN = [
     {
-      ask: "Q1 of 4 — pain right now? Drag the slider or just type it.",
-      card: painSliderCard,
+      ask: "Q1 of 4 — pain right now? Reply with a number, 0-10.",
       chips: ["1", "4", "8"],
       parse(a) {
         const n = parseInt(a.match(/\d+/)?.[0] ?? "", 10);
@@ -401,7 +344,6 @@
       return;
     }
     if (flow.step >= flow.script.length) return; // close-out pending — ignore the race
-    document.querySelectorAll(".ph-slider-card button, .ph-slider-card input").forEach((el) => { el.disabled = true; });
     const step = flow.script[flow.step];
     const res = step.parse(q);
     if (res.retry) { bubble("in", res.retry); return; }
@@ -411,10 +353,7 @@
     if (res.cards) {
       res.cards.forEach((k, i) => setTimeout(() => bubble("in", null, exCard(k)), 350 + i * 450));
     }
-    if (res.guided) {
-      const names = { pendulum: "Pendulum swings", wallcrawl: "Wall crawl", bandrot: "Band external rotation", crossbody: "Cross-body stretch" };
-      setTimeout(() => bubble("in", null, guidedSetCard(names[flow?.ctx?.primary] ?? "Wall crawl")), 500);
-    }
+
     flow.step++;
     if (flow.step < flow.script.length) {
       typing(true);
@@ -501,11 +440,7 @@
       <svg viewBox="0 0 200 100" style="height:88px;background:#f7f4ec;border-radius:8px">${e.svg}</svg>
       <div style="font:600 10px ui-monospace,monospace;color:#3b4733;margin-top:6px">${e.dose}</div>
       <div style="font:11px Inter,sans-serif;color:#6e7768;margin-top:3px;line-height:1.45">${e.tip}</div>
-      <div class="ph-why" role="button" tabindex="0">WHY THIS ONE? →</div>`;
-    card.querySelector(".ph-why").addEventListener("click", () => {
-      bubble("out", `Why the ${e.name.toLowerCase()}?`);
-      setTimeout(() => bubble("in", WHY[e.name] ?? e.tip), 500);
-    });
+      <div class="ph-why">TEXT "WHY ${key.toUpperCase()}" FOR THE REASONING</div>`;
     return card;
   }
   function romCard(nowDeg) {
@@ -540,11 +475,12 @@
       },
     },
     {
-      ask: "Want to do a set right now, together? I'll pace you.",
-      chips: ["Guided set ▶", "Later"],
+      ask: "Want to do a set right now? Text DONE when you finish it (or SKIP).",
+      chips: ["DONE", "SKIP"],
       parse(a) {
-        if (/later|no\b|not/.test(a.toLowerCase())) return { reply: "No pressure — the cards stay in the thread whenever you're ready." };
-        return { reply: "Follow the animation's pace — smooth beats fast:", guided: true };
+        if (/skip|later|no\b/.test(a.toLowerCase()))
+          return { reply: "No pressure — the diagrams stay in this thread whenever you're ready." };
+        return { reply: "That's one quality set in the bank — smooth beats fast, and you kept it smooth. Two more today keeps you on protocol. 💪" };
       },
     },
     {
@@ -588,6 +524,15 @@
     if (!q) return;
     bubble("out", q);
     input.value = "";
+    const whyM = q.match(/^why\s+(?:the\s+)?([a-z\s-]+?)\??$/i);
+    if (whyM) {
+      const t = whyM[1].trim().toLowerCase().replace(/[\s-]/g, "");
+      const hit = Object.keys(WHY).find((n) => n.toLowerCase().replace(/[\s-]/g, "").includes(t) || t.includes(n.split(" ")[0].toLowerCase()));
+      if (hit) {
+        setTimeout(() => bubble("in", WHY[hit]), 500);
+        return;
+      }
+    }
     if (/^post-?op/i.test(q) || q === "Post-op check-in ▶") {
       startFlow(CHECKIN, "🏥 Day 5 after your rotator cuff repair (sample scenario) — your scheduled check-in. Four quick questions; answer with a tap or in your own words. Type STOP anytime.", closeCheckin);
       return;
@@ -630,6 +575,12 @@
     $("#ph-sheet [data-mode='" + mode + "']")?.classList.add("sel");
   }
   $("#ph-ai").addEventListener("click", openSettings);
+  document.getElementById("head-key")?.addEventListener("click", () => {
+    document.querySelector('.tabs button[data-tab="phone"]')?.click();
+    openSettings();
+    document.querySelector("#ph-sheet [data-mode='claude']")?.click();
+    setTimeout(() => document.getElementById("ph-key")?.focus(), 350);
+  });
   $("#ph-sheet-close").addEventListener("click", () => $("#ph-sheet").classList.remove("open"));
   document.querySelectorAll("#ph-sheet [data-mode]").forEach((btn) => {
     btn.addEventListener("click", async () => {

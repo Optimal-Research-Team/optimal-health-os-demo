@@ -177,9 +177,8 @@ body {
 }
 .ph-set-btn[disabled] { opacity: .55; cursor: default; }
 .ph-card .ph-why {
-  margin-top: 7px; font: 10px ui-monospace, monospace; letter-spacing: .08em; color: #4e9b3f; cursor: pointer;
+  margin-top: 7px; font: 10px ui-monospace, monospace; letter-spacing: .08em; color: #9ba391;
 }
-.ph-card .ph-why:hover { text-decoration: underline; }
 
 /* Pain slider card */
 .ph-slider { width: 100%; accent-color: #4e9b3f; margin: 8px 0 2px; }
@@ -192,3 +191,5 @@ body {
 .ph-week .done i { background: #4e9b3f; }
 .ph-week .miss i { background: rgba(23,37,26,.12); }
 .ph-week .today i { background: #fff; border: 2px dashed #4e9b3f; box-sizing: border-box; }
+
+button.pill-note { font-family: Inter, system-ui, sans-serif; font-size: 12px; }
