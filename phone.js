@@ -129,7 +129,10 @@
       const b = DATA.brief;
       return b ? { text: `${b.tone === "push" ? "🟢" : b.tone === "easy" ? "🟠" : "🌿"} ${b.headline}\n${b.detail}` } : { text: "No fresh wearable data for a brief." };
     }
-    if (lower === "summary" || lower === "panel") return { text: DATA.panelSms ?? "No panels on file." };
+    if (
+      lower === "summary" || lower === "panel" ||
+      /\blatest\b.*\b(labs?|tests?|results?|panel|bloodwork)\b|\b(labs?|tests?|results?|bloodwork)\b.*\blatest\b|\bmy (labs|lab tests|results|bloodwork)\b/.test(lower)
+    ) return { text: DATA.panelSms ?? "No panels on file." };
     if (lower === "compare" || /\bchanged\b|\bsince (my )?last (draw|panel|test|labs)\b/.test(lower)) {
       const c = DATA.compareViz;
       return c ? { text: `${c.toDate} vs ${c.fromDate}:\n✅ ${c.improved} improved · ⚠️ ${c.worsened} worsened · ${c.steady} steady\nBiggest movers: ${c.movers.map((v) => `${v.name} ${fmt(v.from)}→${fmt(v.to)} ${v.unit}`).join(", ")}` } : { text: "Need two panels to compare." };
