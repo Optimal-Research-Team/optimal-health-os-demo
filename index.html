@@ -7,7 +7,7 @@
 <meta name="description" content="A personal health OS: labs, wearables, records, and a proactive SMS coach. Live demo on fabricated sample data.">
 <link rel="icon" href="./app/icon.svg">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://esm.run https://cdn.jsdelivr.net 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://api.anthropic.com https://esm.run https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com https://*.mlc.ai; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-src 'self'; base-uri 'none'; form-action 'none'">
-<link rel="stylesheet" href="./demo.css?v=5">
+<link rel="stylesheet" href="./demo.css?v=6">
 </head>
 <body>
 <header class="demo-head">
@@ -24,7 +24,7 @@
 
 <main class="split" data-tab="app">
   <section class="pane-app" aria-label="Optimal Health OS demo app">
-    <iframe src="./app/" title="Optimal Health OS (demo, read-only)"></iframe>
+    <iframe id="app-frame" src="./app/" title="Optimal Health OS (demo, read-only)"></iframe>
   </section>
 
   <aside class="pane-phone" aria-label="SMS coach demo phone">
@@ -73,6 +73,6 @@
   </aside>
 </main>
 
-<script src="./phone.js?v=5"></script>
+<script src="./phone.js?v=6"></script>
 </body>
 </html>

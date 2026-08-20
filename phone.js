@@ -6,6 +6,12 @@
    All answers ground in demo-data.json; marker charts attach like MMS. */
 (() => {
   const $ = (s, el = document) => el.querySelector(s);
+  // Deep link: …/#/trends/ferritin opens the app pane there (sanitized).
+  const hash = location.hash.replace(/^#\//, "");
+  if (/^[a-z0-9_\/-]+$/.test(hash) && hash) {
+    const f = document.getElementById("app-frame");
+    if (f) f.src = `./app/${hash}${hash.endsWith("/") ? "" : "/"}`;
+  }
   document.querySelectorAll(".tabs button").forEach((b) =>
     b.addEventListener("click", () => {
       document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("sel"));
@@ -82,6 +88,16 @@
     const last = vals[vals.length - 1];
     const card = document.createElement("div");
     card.className = "ph-card";
+    if (m.slug) {
+      card.style.cursor = "pointer";
+      card.title = "Open this trend in the app pane";
+      card.addEventListener("click", () => {
+        const frame = document.querySelector(".pane-app iframe");
+        if (frame) frame.src = `./app/trends/${m.slug}/`;
+        document.querySelector('.tabs button[data-tab="app"]')?.click();
+        sysNote(`Opened ${m.name} in the app pane ←`);
+      });
+    }
     card.innerHTML = `
       <div class="ph-card-h"><b>${m.name}</b><span class="ph-pill" style="color:${color};background:${color}22">${m.label}</span></div>
       <div class="ph-card-v">${fmt(last)} <i>${m.unit}</i></div>
@@ -214,6 +230,73 @@
   }
 
 
+
+  // Why each exercise earns its place — tappable education on every diagram.
+  const WHY = {
+    "Pendulum swings": "Gravity moves the joint so the healing tendon doesn't have to — it keeps the capsule from stiffening while the repair is still fragile. That's why it's the ONLY arm motion in the protection phase.",
+    "Wall crawl": "Active-assisted range: the wall carries some load while your shoulder relearns its arc. Height on the wall is a direct, visible measure of flexion — which is why I chart it.",
+    "Band external rotation": "The repaired rotator cuff's actual job is rotation control. Light band work in mid-range rebuilds that strength without stressing the fixation — slow eccentrics (the return) matter most.",
+    "Cross-body stretch": "Targets the posterior capsule, which tightens fast in a sling. A looser posterior capsule takes pressure off the front of the shoulder when you start lifting again.",
+  };
+  function guidedSetCard(name, reps = 10, intervalMs = 1300) {
+    const card = document.createElement("div");
+    card.className = "ph-card";
+    card.innerHTML = `
+      <div class="ph-card-h"><b>Guided set — ${name}</b><span class="ph-pill" style="color:#4e9b3f;background:#4e9b3f22">LIVE</span></div>
+      <div class="ph-set-count">0 <i>/ ${reps} reps</i></div>
+      <div class="ph-set-bar"><i></i></div>
+      <button class="ph-set-btn">▶ Start the set — match the pace</button>`;
+    const btn = card.querySelector(".ph-set-btn");
+    const count = card.querySelector(".ph-set-count");
+    const bar = card.querySelector(".ph-set-bar i");
+    let n = 0, timer = null;
+    btn.addEventListener("click", () => {
+      if (timer) return;
+      btn.textContent = "Slow and smooth…";
+      btn.disabled = true;
+      timer = setInterval(() => {
+        n++;
+        count.innerHTML = `${n} <i>/ ${reps} reps</i>`;
+        bar.style.width = `${(n / reps) * 100}%`;
+        if (n >= reps) {
+          clearInterval(timer);
+          btn.textContent = "Set complete ✓ rest 45s, then once more";
+          setTimeout(() => bubble("in", `Set of ${reps} done at a controlled pace — that's the quality that counts. Two more of those today and you're on protocol. 💪`), 700);
+        }
+      }, intervalMs);
+    });
+    return card;
+  }
+  function painSliderCard() {
+    const card = document.createElement("div");
+    card.className = "ph-card ph-slider-card";
+    card.innerHTML = `
+      <div class="ph-card-h"><b>Slide to your pain level</b><span class="ph-pill" style="color:#6e7768;background:#6e776822">0–10</span></div>
+      <div class="ph-slider-val">3</div>
+      <input type="range" class="ph-slider" min="0" max="10" value="3" aria-label="Pain level 0 to 10">
+      <button class="ph-set-btn">Send</button>`;
+    const slider = card.querySelector(".ph-slider");
+    const val = card.querySelector(".ph-slider-val");
+    slider.addEventListener("input", () => { val.textContent = slider.value; });
+    card.querySelector(".ph-set-btn").addEventListener("click", () => {
+      if (flow) send(slider.value);
+      card.querySelector(".ph-set-btn").disabled = true;
+    });
+    return card;
+  }
+  function adherenceCard() {
+    const days = [
+      ["W", "done"], ["T", "done"], ["F", "miss"], ["S", "done"], ["S", "done"], ["M", "done"], ["T", "today"],
+    ];
+    const card = document.createElement("div");
+    card.className = "ph-card";
+    card.innerHTML = `
+      <div class="ph-card-h"><b>Rehab adherence — this week</b><span class="ph-pill" style="color:#2f9e57;background:#2f9e5722">5 OF 6</span></div>
+      <div class="ph-week">${days.map(([d, k]) => `<span class="${k}"><i></i>${d}</span>`).join("")}</div>
+      <div style="font:11px Inter,sans-serif;color:#6e7768;margin-top:8px;line-height:1.45">One missed day all week — consistency like this is what shows up in your range numbers.</div>`;
+    return card;
+  }
+
   // ── Structured follow-up flows ───────────────────────────
   // The product concept: post-procedure check-ins are PROTOCOLS — scheduled,
   // structured, branching on answers, logged to the issue timeline. The demo
@@ -225,7 +308,8 @@
   ];
   const CHECKIN = [
     {
-      ask: "Q1 of 4 — pain right now, 0–10?",
+      ask: "Q1 of 4 — pain right now? Drag the slider or just type it.",
+      card: painSliderCard,
       chips: ["1", "4", "8"],
       parse(a) {
         const n = parseInt(a.match(/\d+/)?.[0] ?? "", 10);
@@ -293,10 +377,12 @@
   function startFlow(script, intro, close) {
     flow = { script, step: 0, answers: [], flags: 0, ctx: {}, close };
     bubble("in", intro);
+    typing(true);
     setTimeout(() => {
-      bubble("in", script[0].ask);
+      typing(false);
+      bubble("in", script[0].ask, script[0].card?.());
       setChips(script[0].chips);
-    }, 700);
+    }, 900);
   }
   function closeCheckin(done) {
     const pain = CHECKIN[0].value ?? 4;
@@ -305,6 +391,7 @@
       `That's everything — logged to your "Rotator cuff repair" timeline:\n• Pain ${pain}/10 (from 7 on day 1)\n• Incision: ${done.answers[1]}\n• Exercises: ${done.answers[2]}\n• Sleep: ${done.answers[3]}${done.flags ? "\n⚠️ " + done.flags + " item(s) flagged for your care team." : "\nNo flags — trajectory looks good."}\nNext check-in: day 8.`,
       painCard(pain),
     );
+    setTimeout(() => bubble("in", "And your week at a glance:", adherenceCard()), 900);
   }
   function flowAnswer(q) {
     if (/^stop$|^skip$|^cancel$/i.test(q.trim())) {
@@ -314,6 +401,7 @@
       return;
     }
     if (flow.step >= flow.script.length) return; // close-out pending — ignore the race
+    document.querySelectorAll(".ph-slider-card button, .ph-slider-card input").forEach((el) => { el.disabled = true; });
     const step = flow.script[flow.step];
     const res = step.parse(q);
     if (res.retry) { bubble("in", res.retry); return; }
@@ -323,9 +411,19 @@
     if (res.cards) {
       res.cards.forEach((k, i) => setTimeout(() => bubble("in", null, exCard(k)), 350 + i * 450));
     }
+    if (res.guided) {
+      const names = { pendulum: "Pendulum swings", wallcrawl: "Wall crawl", bandrot: "Band external rotation", crossbody: "Cross-body stretch" };
+      setTimeout(() => bubble("in", null, guidedSetCard(names[flow?.ctx?.primary] ?? "Wall crawl")), 500);
+    }
     flow.step++;
     if (flow.step < flow.script.length) {
-      setTimeout(() => { bubble("in", flow.script[flow.step].ask); setChips(flow.script[flow.step].chips); }, 900);
+      typing(true);
+      setTimeout(() => {
+        typing(false);
+        const nxt = flow.script[flow.step];
+        bubble("in", nxt.ask, nxt.card?.());
+        setChips(nxt.chips);
+      }, 1000);
     } else {
       const done = flow;
       setTimeout(() => {
@@ -348,9 +446,11 @@
           <path d="M70 30 L96 52 L128 56" fill="none" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
           <path d="M96 52 L96 92" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
           <path d="M128 44 L128 60 M112 60 L172 60 M118 60 L118 92 M166 60 L166 92" stroke="${STICK.ink}" stroke-width="2" stroke-linecap="round"/>
-          <path d="M78 36 L74 74" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
-          <ellipse cx="74" cy="84" rx="14" ry="7" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4"/>
-          <path d="M60 82 L56 86 L62 88" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>`,
+          <g class="an-swing" style="transform-origin:78px 36px">
+            <path d="M78 36 L74 74" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+            <circle cx="74" cy="76" r="3" fill="${STICK.limb}"/>
+          </g>
+          <ellipse cx="74" cy="84" rx="14" ry="7" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4"/>`,
       },
       wallcrawl: {
         name: "Wall crawl", dose: "3×10 · stop at pull, not pain",
@@ -358,10 +458,12 @@
         svg: `<path d="M150 8 L150 96" stroke="${STICK.ink}" stroke-width="2.5"/>
           <circle cx="86" cy="30" r="8" fill="none" stroke="${STICK.ink}" stroke-width="2.5"/>
           <path d="M86 38 L86 74 M86 74 L76 96 M86 74 L96 96" fill="none" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M86 44 L148 34" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
-          <path d="M144 30 L144 12" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>
-          <path d="M140 16 L144 10 L148 16" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>
-          <path d="M138 30 L142 32 L140 36 L144 38" fill="none" stroke="${STICK.limb}" stroke-width="2" stroke-linecap="round"/>`,
+          <g class="an-crawl" style="transform-origin:86px 44px">
+            <path d="M86 44 L148 34" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M144 30 L148 34 L144 38" fill="none" stroke="${STICK.limb}" stroke-width="2.5" stroke-linecap="round"/>
+          </g>
+          <path d="M156 34 L156 14" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>
+          <path d="M152 18 L156 12 L160 18" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>`,
       },
       bandrot: {
         name: "Band external rotation", dose: "3×12 · elbow glued to your side",
@@ -369,8 +471,10 @@
         svg: `<circle cx="66" cy="24" r="8" fill="none" stroke="${STICK.ink}" stroke-width="2.5"/>
           <path d="M66 32 L66 78 M66 78 L56 96 M66 78 L76 96" fill="none" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
           <path d="M66 44 L84 56" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
-          <path d="M84 56 L122 48" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
-          <path d="M122 48 C138 44 148 40 156 30" fill="none" stroke="${STICK.ink}" stroke-width="2" stroke-dasharray="2 3"/>
+          <g class="an-rot" style="transform-origin:84px 56px">
+            <path d="M84 56 L122 48" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M122 48 C138 44 148 40 156 30" fill="none" stroke="${STICK.ink}" stroke-width="2" stroke-dasharray="2 3"/>
+          </g>
           <ellipse cx="156" cy="24" rx="5" ry="8" fill="none" stroke="${STICK.ink}" stroke-width="2"/>
           <path d="M112 62 A26 26 0 0 0 116 36" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4"/>
           <path d="M112 40 L117 34 L121 41" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>`,
@@ -380,8 +484,10 @@
         tip: "Bring the arm across the chest with the other hand; a stretch, never a strain.",
         svg: `<circle cx="96" cy="22" r="8" fill="none" stroke="${STICK.ink}" stroke-width="2.5"/>
           <path d="M96 30 L96 76 M96 76 L86 96 M96 76 L106 96" fill="none" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M96 40 L132 52" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
-          <path d="M132 52 L64 58" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+          <g class="an-pull">
+            <path d="M96 40 L132 52" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M132 52 L64 58" stroke="${STICK.limb}" stroke-width="3.5" stroke-linecap="round"/>
+          </g>
           <path d="M96 42 L70 52" stroke="${STICK.ink}" stroke-width="2.5" stroke-linecap="round"/>
           <path d="M120 66 A30 22 0 0 1 84 66" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-dasharray="4 4"/>
           <path d="M90 62 L83 67 L90 71" fill="none" stroke="${STICK.move}" stroke-width="2" stroke-linecap="round"/>`,
@@ -391,10 +497,15 @@
     const card = document.createElement("div");
     card.className = "ph-card";
     card.innerHTML = `
-      <div class="ph-card-h"><b>${e.name}</b><span class="ph-pill" style="color:#4e9b3f;background:#4e9b3f22">REHAB</span></div>
+      <div class="ph-card-h"><b>${e.name}</b><span class="ph-pill" style="color:#4e9b3f;background:#4e9b3f22" title="Over real SMS this arrives as an MMS PNG card — see ./app/api/exercise-image/${key}.png in this demo">MMS ✓</span></div>
       <svg viewBox="0 0 200 100" style="height:88px;background:#f7f4ec;border-radius:8px">${e.svg}</svg>
       <div style="font:600 10px ui-monospace,monospace;color:#3b4733;margin-top:6px">${e.dose}</div>
-      <div style="font:11px Inter,sans-serif;color:#6e7768;margin-top:3px;line-height:1.45">${e.tip}</div>`;
+      <div style="font:11px Inter,sans-serif;color:#6e7768;margin-top:3px;line-height:1.45">${e.tip}</div>
+      <div class="ph-why" role="button" tabindex="0">WHY THIS ONE? →</div>`;
+    card.querySelector(".ph-why").addEventListener("click", () => {
+      bubble("out", `Why the ${e.name.toLowerCase()}?`);
+      setTimeout(() => bubble("in", WHY[e.name] ?? e.tip), 500);
+    });
     return card;
   }
   function romCard(nowDeg) {
@@ -420,9 +531,20 @@
       parse(a) {
         const w = parseInt(a.match(/\d+/)?.[0] ?? "3", 10);
         this.week = w;
-        if (w <= 2) return { reply: "Week " + w + " — protection phase. The job is gentle motion without loading the repair. Two moves, both passive:", cards: ["pendulum", "crossbody"] };
-        if (w <= 5) return { reply: "Week " + w + " — active-assisted phase. Time to reclaim range. Your two dailies:", cards: ["wallcrawl", "pendulum"] };
-        return { reply: "Week " + w + " — early strengthening. Range work continues, and the band comes out:", cards: ["bandrot", "wallcrawl"] };
+        const phase =
+          w <= 2 ? { reply: "Week " + w + " — protection phase. The job is gentle motion without loading the repair. Two moves, both passive:", cards: ["pendulum", "crossbody"] }
+          : w <= 5 ? { reply: "Week " + w + " — active-assisted phase. Time to reclaim range. Your two dailies:", cards: ["wallcrawl", "pendulum"] }
+          : { reply: "Week " + w + " — early strengthening. Range work continues, and the band comes out:", cards: ["bandrot", "wallcrawl"] };
+        flow.ctx.primary = phase.cards[0];
+        return phase;
+      },
+    },
+    {
+      ask: "Want to do a set right now, together? I'll pace you.",
+      chips: ["Guided set ▶", "Later"],
+      parse(a) {
+        if (/later|no\b|not/.test(a.toLowerCase())) return { reply: "No pressure — the cards stay in the thread whenever you're ready." };
+        return { reply: "Follow the animation's pace — smooth beats fast:", guided: true };
       },
     },
     {

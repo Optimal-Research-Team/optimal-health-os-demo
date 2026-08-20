@@ -151,3 +151,44 @@ body {
 #ph-sheet-status { font: 11px ui-monospace, monospace; color: var(--faint); min-height: 28px; }
 #ph-sheet-close { position: absolute; top: 12px; right: 14px; border: 0; background: none; font-size: 15px; cursor: pointer; color: var(--faint); }
 .ph-disclaim { text-align: center; font: 9px ui-monospace, monospace; letter-spacing: .1em; color: var(--faint); padding-bottom: 8px; }
+
+/* ── Animated exercise diagrams (the "GIF", but vector + reduced-motion aware) ── */
+.ph-card svg g[class^="an-"] { transform-box: view-box; }
+.an-swing { animation: exSwing 1.7s ease-in-out infinite alternate; }
+@keyframes exSwing { from { transform: rotate(-13deg); } to { transform: rotate(13deg); } }
+.an-crawl { animation: exCrawl 2s ease-in-out infinite alternate; }
+@keyframes exCrawl { from { transform: rotate(9deg); } to { transform: rotate(-14deg); } }
+.an-rot { animation: exRot 1.5s ease-in-out infinite alternate; }
+@keyframes exRot { from { transform: rotate(6deg); } to { transform: rotate(-32deg); } }
+.an-pull { animation: exPull 2.1s ease-in-out infinite alternate; }
+@keyframes exPull { from { transform: translate(0, 0); } to { transform: translate(-7px, 2px); } }
+@media (prefers-reduced-motion: reduce) {
+  .ph-card svg g[class^="an-"] { animation: none; }
+}
+
+/* Guided-set card */
+.ph-set-count { font: 700 26px ui-monospace, monospace; color: #18240f; text-align: center; margin: 6px 0 2px; }
+.ph-set-count i { font: 400 11px ui-monospace, monospace; color: #9ba391; }
+.ph-set-bar { height: 5px; border-radius: 99px; background: rgba(23,37,26,.08); overflow: hidden; margin: 6px 0 8px; }
+.ph-set-bar i { display: block; height: 100%; width: 0%; background: #4e9b3f; border-radius: 99px; transition: width 300ms ease; }
+.ph-set-btn {
+  width: 100%; border: 0; border-radius: 10px; background: #4e9b3f; color: #fff;
+  font: 600 12px Inter, sans-serif; padding: 9px 0; cursor: pointer;
+}
+.ph-set-btn[disabled] { opacity: .55; cursor: default; }
+.ph-card .ph-why {
+  margin-top: 7px; font: 10px ui-monospace, monospace; letter-spacing: .08em; color: #4e9b3f; cursor: pointer;
+}
+.ph-card .ph-why:hover { text-decoration: underline; }
+
+/* Pain slider card */
+.ph-slider { width: 100%; accent-color: #4e9b3f; margin: 8px 0 2px; }
+.ph-slider-val { font: 700 22px ui-monospace, monospace; text-align: center; color: #18240f; }
+
+/* Adherence week strip */
+.ph-week { display: flex; justify-content: space-between; margin-top: 8px; }
+.ph-week span { display: flex; flex-direction: column; align-items: center; gap: 4px; font: 9px ui-monospace, monospace; color: #9ba391; }
+.ph-week i { width: 14px; height: 14px; border-radius: 99px; }
+.ph-week .done i { background: #4e9b3f; }
+.ph-week .miss i { background: rgba(23,37,26,.12); }
+.ph-week .today i { background: #fff; border: 2px dashed #4e9b3f; box-sizing: border-box; }
